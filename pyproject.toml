@@ -1,0 +1,24 @@
+[project]
+name = "librariant"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "boto>=2.49.0",
+    "boto3>=1.40.57",
+    "elasticsearch>=8.19.2",
+    "fastapi>=0.136.0",
+    "pydantic>=2.13.3",
+    "pypdf>=6.10.2",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.38.0",
+    "pydantic-settings>=2.14.0",
+    "minio>=7.2.20",
+    "aioboto3>=15.5.0",
+    "python-json-logger>=4.1.0",
+    "sqlalchemy>=2.0.50",
+    "asyncpg>=0.30.0",
+    "bcrypt>=5.0.0",
+    "email-validator>=2.3.0",
+    "python-jose[cryptography]>=3.5.0",
+]
