@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -34,6 +35,7 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
 
+@asynccontextmanager
 async def get_db_sess() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:

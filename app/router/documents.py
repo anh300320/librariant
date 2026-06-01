@@ -1,42 +1,25 @@
-from elasticsearch import Elasticsearch
+from pathlib import Path
+
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.params import Depends, Form
 
-from app.router.dependencies import get_storage_service
+from app.models.document import Document
+from app.router.dependencies import get_document_service
 from app.schema.base import BaseResponse
 from app.schema.documents import DocumentUploadRequest
-from app.service.storage.base import StoredObject, StorageService, AsyncStorageService
+from app.service.document import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def _ensure_index_exists(es_client: Elasticsearch, index_name: str) -> None:
-    if es_client.indices.exists(index=index_name):
-        return
-
-    es_client.indices.create(
-        index=index_name,
-        mappings={
-            "properties": {
-                "file_name": {"type": "keyword"},
-                "content_type": {"type": "keyword"},
-                "size_kb": {"type": "float"},
-                "s3_key": {"type": "keyword"},
-                "uploaded_at": {"type": "date"},
-                "content": {"type": "text"},
-            }
-        },
-    )
-
-
-@router.post("/upload", status_code=status.HTTP_201_CREATED)
-async def upload_and_index(
-    storage_service: AsyncStorageService = Depends(get_storage_service),
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def upload_document(
+    document_service: DocumentService = Depends(get_document_service),
     file: UploadFile = File(...),
     metadata: str = Form(...)
 ) -> BaseResponse:
 
-    metadata = DocumentUploadRequest.model_validate_strings(metadata)
+    upload_request = DocumentUploadRequest.model_validate_json(metadata)
     try:
         raw_content = await file.read()
     finally:
@@ -47,14 +30,19 @@ async def upload_and_index(
             detail="Uploaded file is empty.",
         )
 
-    document = StoredObject(
+    document = Document(
+        name=file.filename,
+        path=Path(upload_request.path),
         content_type=file.content_type,
-        content=raw_content,
+        raw_content=raw_content,
         kb_size=file.size // 1024,
     )
-    id = await storage_service.store(document)
-
+    document = await document_service.add_document(document, upload_request.path)
     return BaseResponse(
         status="200",
-        data=f"Upload document successfully, {id=}",
+        message="Upload document successfully",
+        data={
+            "id": document.id,
+            "name": document.name,
+        }
     )

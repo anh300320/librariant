@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class StoredObject(BaseModel):
     id: str | None = None
+    name: str
     content: bytes
     content_type: str | None = None
     kb_size: int | None = None
