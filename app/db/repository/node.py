@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.entities.node import Node
+from app.lib.utils import normalize_node_name
 from app.models.document import Document, BaseNode, Folder
 
 
@@ -13,12 +14,14 @@ def _convert_node(node: Node) -> BaseNode:
             id=node.id,
             name=node.name,
             path=Path(node.path),
+            create_at=node.create_time,
         )
     else:
         return Document(
             id=node.id,
             name=node.name,
-            path=Path(node.path)
+            path=Path(node.path),
+            create_at=node.create_time,
         )
 
 
@@ -63,3 +66,24 @@ async def add_document(
     await db_sess.refresh(node)
     document.id = node.id
     return document
+
+
+async def add_folder(
+    db_sess: AsyncSession,
+    folder: Folder,
+    parent: Folder | None = None,
+) -> Folder:
+    node = Node(
+        name=folder.name,
+        path=folder.path.as_posix(),
+        storage_access_id=None,
+        parent_id=parent.id if parent else None,
+        is_folder=True,
+        content_type=None,
+        kb_size=None,
+    )
+    db_sess.add(node)
+    await db_sess.flush()
+    await db_sess.refresh(node)
+    folder.id = node.id
+    return folder

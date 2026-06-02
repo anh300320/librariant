@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     role: str
+    home_folder_id: int
 
 
 class AuthResponse(BaseModel):

@@ -12,7 +12,7 @@ class Node(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255))
     path: Mapped[str] = mapped_column(String(1024))
-    storage_access_id: Mapped[str] = mapped_column(String(255))
+    storage_access_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_folder: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     kb_size: Mapped[int | None] = mapped_column(Integer())

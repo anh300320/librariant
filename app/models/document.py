@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ class BaseNode(BaseModel):
     id: int = 0
     name: str = ""
     path: Path | None = None
+    created_at: datetime | None = None
 
 
 class Document(BaseNode):

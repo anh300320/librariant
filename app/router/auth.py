@@ -1,22 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db_sess
+from app.models.user import UserModel
+from app.router.dependencies import get_folder_service
 from app.schema.auth import AuthResponse, LoginRequest, RegisterRequest, UserResponse
 from app.schema.base import BaseResponse
 from app.service.auth import AuthService
+from app.service.folder import FolderService
 from app.settings.auth import auth_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def get_auth_service(
-    db_sess: AsyncSession = Depends(get_db_sess),
-) -> AuthService:
-    return AuthService(db_sess, auth_settings)
+def get_auth_service() -> AuthService:
+    return AuthService(auth_settings)
 
 
-def _to_auth_response(user, token: str) -> AuthResponse:
+def _to_auth_response(user: UserModel, token: str, home_folder_id: int) -> AuthResponse:
     return AuthResponse(
         access_token=token,
         user=UserResponse(
@@ -24,6 +23,7 @@ def _to_auth_response(user, token: str) -> AuthResponse:
             username=user.username,
             email=user.email,
             role=user.role,
+            home_folder_id=home_folder_id
         ),
     )
 
@@ -32,6 +32,7 @@ def _to_auth_response(user, token: str) -> AuthResponse:
 async def register(
     body: RegisterRequest,
     auth_service: AuthService = Depends(get_auth_service),
+    folder_service: FolderService = Depends(get_folder_service),
 ) -> BaseResponse:
     try:
         user, token = await auth_service.register(
@@ -44,10 +45,16 @@ async def register(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+    else:
+        user_folder = await folder_service.create_user_directory(user)
 
     return BaseResponse(
         status="201",
-        data=_to_auth_response(user, token),
+        data=_to_auth_response(
+            user,
+            token,
+            home_folder_id=user_folder.id,
+        ),
     )
 
 
@@ -55,6 +62,7 @@ async def register(
 async def login(
     body: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
+    folder_service: FolderService = Depends(get_folder_service),
 ) -> BaseResponse:
     try:
         user, token = await auth_service.login(
@@ -69,5 +77,9 @@ async def login(
 
     return BaseResponse(
         status="200",
-        data=_to_auth_response(user, token),
+        data=_to_auth_response(
+            user,
+            token,
+            user_folder.id,
+        ),
     )

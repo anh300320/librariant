@@ -4,6 +4,6 @@ from pydantic import BaseModel
 
 
 class BaseResponse(BaseModel):
-    status: str
+    status: str = "200"
     message: str = ""
     data: Any | None = None

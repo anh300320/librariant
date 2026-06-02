@@ -6,7 +6,7 @@ from fastapi.params import Depends, Form
 from app.models.document import Document
 from app.router.dependencies import get_document_service
 from app.schema.base import BaseResponse
-from app.schema.documents import DocumentUploadRequest
+from app.schema.document import DocumentUploadRequest
 from app.service.document import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
