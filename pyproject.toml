@@ -23,6 +23,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "alembic>=1.18.4",
     "greenlet>=3.5.1",
+    "aiokafka>=0.14.0",
 ]
 
 [tool.uv.sources]

@@ -2,11 +2,13 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.repository.doc_process_outbox import add_doc_process_outbox
+from app.background_workers.model.event_payload import DocumentUploadEventPayload
+from app.db.repository.event_outbox import add_event_outbox
 from app.db.repository.node import get_node_by_path, add_document
 from app.db.session import get_db_sess
 from app.exception.node import NodeNotFoundError, InvalidNodeTypeError
 from app.models.document import Document, Folder
+from app.models.events import DOCUMENT_UPLOAD_EVENT
 from app.service.storage.base import StoredObject, AsyncStorageService
 
 
@@ -46,8 +48,13 @@ class DocumentService:
                 parent=parent_folder,
                 document=document
             )
-            await add_doc_process_outbox(
-                db_sess=db_sess,
+            payload = DocumentUploadEventPayload(
                 document_id=document.id,
+                storage_access_id=document.storage_access_id,
+            )
+            await add_event_outbox(
+                db_sess=db_sess,
+                event_type=DOCUMENT_UPLOAD_EVENT,
+                payload=payload.model_dump(),
             )
         return document
