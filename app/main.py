@@ -26,6 +26,7 @@ from app.settings.minio import minio_settings
 async def lifespan(app: FastAPI):
     await init_db()
     search_service = ElasticsearchService(settings=elasticsearch_settings)
+    await search_service.ensure_index()
     storage_service = AsyncMinioStorageService(settings=minio_settings)
     app.state.storage_service = storage_service
     app.state.search_service = search_service

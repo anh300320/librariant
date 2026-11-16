@@ -59,10 +59,10 @@ class DocumentIndexerWorker(AsyncProcessor[DocumentUploadEventPayload]):
                 )
             )
 
-            # Extract and save the candidate before indexing: the search index has
-            # no idempotent upsert, so a failure after indexing would create a
-            # duplicate search document when the task is retried. Saving the
-            # candidate is safe to repeat (it replaces the document's previous one).
+            # Extract and save the candidate first, so the search document can
+            # include it (with its database id). Both steps are safe to repeat on
+            # a retry: the candidate replaces the document's previous one, and the
+            # search document is overwritten by doc_id.
             candidate = await self._extractor.aextract(parsed_document.content)
             async with self._get_db_sess_func() as db_sess:
                 saved = await replace_candidate_for_document(
@@ -81,5 +81,6 @@ class DocumentIndexerWorker(AsyncProcessor[DocumentUploadEventPayload]):
                     tags=[],
                     organization="default",
                     created_at=get_current_time(),
+                    candidate=saved,
                 )
                 await self._search_service.add(document=index_document)

@@ -110,6 +110,9 @@ async def test_extracts_saves_and_indexes(setup, db_sess: AsyncSession) -> None:
     assert candidate.full_name == "Jane Doe"
     assert candidate.source_document_id == 1
     assert [d.doc_id for d in search.added] == ["obj-1"]
+    assert search.added[0].candidate is not None
+    assert search.added[0].candidate.id == candidate.id
+    assert search.added[0].candidate.tech_stack == ["Python"]
     assert idem.outcome == "succeeded"
 
 
