@@ -1,7 +1,6 @@
 from app.models.document import Document
 from app.service.doc_parser.base import Parser
 from app.service.doc_parser.models import ParsedDocument
-from app.service.doc_parser.pdf import PdfParser
 
 
 class ParserManager(Parser):
