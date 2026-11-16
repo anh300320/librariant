@@ -12,6 +12,7 @@ from app.db.session import get_db_sess, init_db
 from app.models.events import DOCUMENT_UPLOAD_EVENT
 from app.service.doc_parser.manager import ParserManager
 from app.service.doc_parser.pdf import PdfParser
+from app.service.extractor.llm_extractor import LlmExtractor
 from app.settings.kafka import kafka_settings
 from app.router.auth import router as auth_router
 from app.router.documents import router as documents_router
@@ -40,6 +41,8 @@ async def lifespan(app: FastAPI):
             storage=storage_service,
             parser=ParserManager([PdfParser()]),
             idempotency_manager=DbOpManager(task_name="document_indexer", get_db_sess_func=get_db_sess),
+            extractor=LlmExtractor(),
+            get_db_sess_func=get_db_sess,
         ),
         kafka_settings=kafka_settings,
     )
