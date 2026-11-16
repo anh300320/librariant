@@ -7,7 +7,8 @@ from app.background_workers.consumer.base import KafkaConsumer
 from app.background_workers.consumer.document_indexer import DocumentIndexerWorker
 from app.background_workers.producer.base import AsyncBackgroundWorker
 from app.background_workers.producer.document_upload import DocumentUploadedProducer
-from app.db.session import init_db
+from app.db.repository.idempotent import DbOpManager
+from app.db.session import get_db_sess, init_db
 from app.models.events import DOCUMENT_UPLOAD_EVENT
 from app.service.doc_parser.manager import ParserManager
 from app.service.doc_parser.pdf import PdfParser
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
             search_service=search_service,
             storage=storage_service,
             parser=ParserManager([PdfParser()]),
+            idempotency_manager=DbOpManager(task_name="document_indexer", get_db_sess_func=get_db_sess),
         ),
         kafka_settings=kafka_settings,
     )
