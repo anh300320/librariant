@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.db.entities.base import Base
+from app.db.entities.candidate import Candidate  # noqa: F401
 from app.db.entities.event_outbox import EventOutbox  # noqa: F401 — registers with Base.metadata
 from app.db.entities.node import Node  # noqa: F401
 from app.db.entities.user import User  # noqa: F401
