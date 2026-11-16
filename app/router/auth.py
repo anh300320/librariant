@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.exception.node import NodeBaseError
 from app.models.user import UserModel
 from app.router.dependencies import get_folder_service
 from app.schema.auth import AuthResponse, LoginRequest, RegisterRequest, UserResponse
@@ -75,11 +76,18 @@ async def login(
             detail=str(exc),
         ) from exc
 
+    try:
+        user_root_folder = await folder_service.get_user_home_folder(user)
+    except NodeBaseError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
     return BaseResponse(
         status="200",
         data=_to_auth_response(
             user,
             token,
-            user_folder.id,
+            user_root_folder.id,
         ),
     )
