@@ -161,14 +161,16 @@ class TestUploadDocumentSuccess:
         document_id = response.json()["data"]["id"]
 
         from sqlalchemy import select
-        from app.db.entities.doc_process_outbox import DocProcessOutbox, DocProcessOutboxStatus
+        from app.db.entities.event_outbox import EventOutbox
+        from app.models.events import DOCUMENT_UPLOAD_EVENT
 
         result = await db_sess.execute(
-            select(DocProcessOutbox).where(DocProcessOutbox.document_id == document_id)
+            select(EventOutbox).where(EventOutbox.event_type == DOCUMENT_UPLOAD_EVENT)
         )
         outbox = result.scalar_one_or_none()
         assert outbox is not None
-        assert outbox.status == DocProcessOutboxStatus.CREATED
+        assert outbox.payload["document_id"] == document_id
+        assert outbox.published_at is None
 
     async def test_file_content_is_sent_to_storage(
         self,

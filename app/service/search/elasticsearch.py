@@ -1,11 +1,22 @@
+import logging
 from datetime import datetime
 from typing import Any
 
-from elasticsearch import AsyncElasticsearch, Elasticsearch
+from elasticsearch import AsyncElasticsearch
 
+from app.lib.utils import get_current_time
 from app.service.search.base import SearchQuery, AsyncSearchService
+from app.service.search.candidate_doc import (
+    INDEX_MAPPINGS,
+    INDEX_SETTINGS,
+    candidate_to_es,
+    es_to_candidate,
+)
 from app.service.search.model import SearchDocument
-from app.settings.elasticsearch import elasticsearch_settings, ElasticsearchSettings
+from app.settings.elasticsearch import ElasticsearchSettings
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ElasticsearchService(AsyncSearchService):
@@ -15,12 +26,29 @@ class ElasticsearchService(AsyncSearchService):
         self._index = settings.index
         self._client: AsyncElasticsearch = AsyncElasticsearch(hosts=[settings.url])
 
+    async def ensure_index(self) -> None:
+        """Create the index with the candidate mapping if it doesn't exist yet.
+
+        An existing index is left untouched: mappings can't be changed in place,
+        so an index created with an older mapping must be deleted (or reindexed).
+        """
+        if await self._client.indices.exists(index=self._index):
+            return
+        await self._client.indices.create(
+            index=self._index,
+            settings=INDEX_SETTINGS,
+            mappings=INDEX_MAPPINGS,
+        )
+        _logger.info("created search index, index=%s", self._index)
+
     async def add(
         self,
         document: SearchDocument,
     ) -> None:
         es_doc = self._convert_to_es_doc(document=document)
-        await self._client.index(index=self._index, document=es_doc)
+        # Use doc_id as the Elasticsearch _id so re-indexing a document (e.g. a
+        # retried task) overwrites it instead of creating a duplicate.
+        await self._client.index(index=self._index, id=document.doc_id, document=es_doc)
 
     def _convert_to_es_doc(
         self,
@@ -32,29 +60,99 @@ class ElasticsearchService(AsyncSearchService):
             "text": document.text,
             "organization": document.organization,
             "created_at": document.created_at.isoformat(),
-            "tags": document.tags
+            "tags": document.tags,
+            "candidate": (
+                candidate_to_es(document.candidate, today=get_current_time().date())
+                if document.candidate
+                else None
+            ),
         }
 
     async def search(
         self,
         search: SearchQuery,
     ) -> list[SearchDocument]:
-        body = self._build_query(search)
-        result = await self._client.search(index=self._index, body=body)
-        return self._parse_es_result(result)
+        result = await self._client.search(index=self._index, query=self._build_query(search))
+        return self._parse_es_result(result.body)
 
     def _build_query(
         self,
         search: SearchQuery,
     ) -> dict[str, Any]:
+        """Free-text search across the CV text and the main candidate fields.
+
+        Matches in structured fields (name, title, skills) rank above matches
+        that only appear somewhere in the CV text.
+        """
+        query = search.raw_query
         return {
-            "query": {
-                "wildcard": {
-                    "content": {
-                        "value": f"*{search.raw_query}*",
-                        "case_insensitive": True,
-                    }
-                }
+            "bool": {
+                "should": [
+                    {
+                        "multi_match": {
+                            "query": query,
+                            "fields": [
+                                "candidate.full_name^4",
+                                "candidate.headline^3",
+                                "candidate.current_title^3",
+                                "candidate.summary^2",
+                                "candidate.location",
+                                "filename",
+                                "text",
+                            ],
+                        }
+                    },
+                    # Exact (case-insensitive) skill match, e.g. "python".
+                    {"term": {"candidate.all_tech_stack": {"value": query, "boost": 3}}},
+                    {
+                        "nested": {
+                            "path": "candidate.experiences",
+                            "query": {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": [
+                                        "candidate.experiences.title^2",
+                                        "candidate.experiences.company^2",
+                                        "candidate.experiences.description",
+                                    ],
+                                }
+                            },
+                            "score_mode": "max",
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": "candidate.projects",
+                            "query": {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": [
+                                        "candidate.projects.name^2",
+                                        "candidate.projects.description",
+                                    ],
+                                }
+                            },
+                            "score_mode": "max",
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": "candidate.educations",
+                            "query": {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": [
+                                        "candidate.educations.institution^2",
+                                        "candidate.educations.degree",
+                                        "candidate.educations.field_of_study",
+                                    ],
+                                }
+                            },
+                            "score_mode": "max",
+                        }
+                    },
+                ],
+                "minimum_should_match": 1,
             }
         }
 
@@ -76,26 +174,8 @@ class ElasticsearchService(AsyncSearchService):
                     tags=source.get("tags", []),
                     organization=source.get("organization", ""),
                     created_at=source.get("created_at", datetime.now().isoformat()),
+                    candidate=es_to_candidate(source.get("candidate") or {}),
                 )
             )
 
         return documents
-
-
-def init_index(index_name: str):
-    es_client = Elasticsearch(hosts=[elasticsearch_settings.url])
-    if not es_client.indices.exists(index=index_name):
-        es_client.indices.create(
-            index=index_name,
-            body={
-                "mappings": {
-                    "properties": {
-                        "user_id": {"type": "keyword"},
-                        "file_id": {"type": "keyword"},
-                        "filename": {"type": "text"},
-                        "content": {"type": "text"},
-                        "created_at": {"type": "date"}
-                    }
-                }
-            }
-        )

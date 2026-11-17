@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.candidate import Candidate
+
 
 class SearchQuery(BaseModel):
     raw_query: str
@@ -14,3 +16,4 @@ class SearchDocument(BaseModel):
     tags: list[str]
     organization: str
     created_at: datetime
+    candidate: Candidate | None = None

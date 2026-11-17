@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.db.entities.base import Base
+from app.db.entities.candidate import Candidate  # noqa: F401
 from app.db.entities.node import Node  # noqa: F401
 from app.db.entities.user import User  # noqa: F401
 from app.settings.database import database_settings

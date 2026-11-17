@@ -1,4 +1,8 @@
 import re
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+from app.settings.app import app_settings
 
 
 def remove_all_chars_except_alnum(
@@ -17,3 +21,8 @@ def remove_all_chars_except_alnum(
 def normalize_node_name(name: str) -> str:
     name = name.replace("/", "")
     return name
+
+
+def get_current_time() -> datetime:
+    tz = ZoneInfo(app_settings.timezone)
+    return datetime.now(tz)

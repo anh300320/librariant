@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.db.repository.node import get_child_nodes_by_parent_id, add_folder, get_node_by_path
 from app.db.session import get_db_sess
-from app.exception.node import InvalidNodeTypeError
+from app.exception.node import InvalidNodeTypeError, NodeNotFoundError
 from app.lib.utils import normalize_node_name
 from app.models.document import BaseNode, Folder
 from app.models.user import UserModel
@@ -43,6 +43,8 @@ class FolderService:
             home_folder = await get_node_by_path(db_sess, home_folder_path.as_posix())
         if not isinstance(home_folder, Folder):
             raise InvalidNodeTypeError
+        if home_folder is None:
+            raise NodeNotFoundError
         return home_folder
 
     def _get_user_home_folder_name(self, user: UserModel) -> str:
